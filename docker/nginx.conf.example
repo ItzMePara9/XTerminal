@@ -1,0 +1,67 @@
+# XTerminal behind Nginx with WebSocket support.
+# Put this in /etc/nginx/sites-available/xterminal (Debian/Ubuntu) and symlink
+# it into sites-enabled, or adjust for your distribution.
+
+# Replace terminal.example.com with your domain and point
+# the certificate paths at your real certs (e.g. from certbot).
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name terminal.example.com;
+
+    # Let Encrypt / certbot usually manages the redirect; keep it simple:
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name terminal.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/terminal.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/terminal.example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # Security headers complement the ones set by the app itself.
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy no-referrer always;
+
+    # Max body size: generous enough for pasted SSH keys.
+    client_max_body_size 1m;
+
+    # ----------------------------------------------------------------------
+    # WebSocket terminal endpoint.
+    # The upgrade headers are REQUIRED - without them /ws/* connections fail.
+    # ----------------------------------------------------------------------
+    location /ws/ {
+        proxy_pass http://127.0.0.1:7132;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Terminals are long-lived: do not time out idle sessions here.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    # ----------------------------------------------------------------------
+    # Everything else (API + SPA).
+    # ----------------------------------------------------------------------
+    location / {
+        proxy_pass http://127.0.0.1:7132;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

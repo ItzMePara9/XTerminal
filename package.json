@@ -1,0 +1,29 @@
+{
+  "name": "xterminal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "XTerminal - self-hosted web SSH client and server connection manager",
+  "packageManager": "pnpm@9.13.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' build && pnpm --filter @xterminal/api build && pnpm --filter @xterminal/web build",
+    "start": "node apps/api/dist/index.js",
+    "dev": "pnpm --filter @xterminal/api dev",
+    "dev:web": "pnpm --filter @xterminal/web dev",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

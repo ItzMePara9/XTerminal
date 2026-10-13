@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../apps/api/src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  name             String?
+  passwordHash     String
+  emailVerified    Boolean  @default(false)
+  emailVerifyToken String?
+  emailVerifyAt    DateTime?
+  resetToken       String?
+  resetTokenAt     DateTime?
+  totpSecret       String? // encrypted at rest via vault
+  totpEnabled      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sessions          AuthSession[]
+  connections       Connection[]
+  groups            ConnectionGroup[]
+  sshKeys           SshKey[]
+  certificates      SshCertificate[]
+  knownHosts        KnownHost[]
+  webauthnCredentials WebAuthnCredential[]
+  tags              Tag[]
+  auditLogs         AuditLog[]
+  counters          UserCounter?
+
+  @@index([email])
+}
+
+model UserCounter {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionCount Int    @default(0)
+}
+
+model AuthSession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model ConnectionGroup {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+
+  connections Connection[]
+
+  @@unique([userId, name])
+}
+
+model Connection {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nickname         String?
+  host             String
+  port             Int       @default(22)
+  username         String
+  authMethod       String    @default("PASSWORD") // PASSWORD | KEY | CERT
+  passwordCipher   String?   // AES-256-GCM vault blob
+  privateKeyCipher String?   // AES-256-GCM vault blob
+  passphraseCipher String?   // AES-256-GCM vault blob
+  sshKeyId         String?
+  sshKey           SshKey?   @relation("ConnectionKey", fields: [sshKeyId], references: [id], onDelete: SetNull)
+  certificateId    String?
+  certificate      SshCertificate? @relation("ConnectionCert", fields: [certificateId], references: [id], onDelete: SetNull)
+  jumpConnectionId String?
+  jumpConnection   Connection? @relation("JumpHop", fields: [jumpConnectionId], references: [id], onDelete: SetNull)
+  inboundJumps     Connection[] @relation("JumpHop")
+  groupId          String?
+  group            ConnectionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  favorite         Boolean   @default(false)
+  lastConnectedAt  DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tags TagOnConnection[]
+
+  @@index([userId])
+  @@index([groupId])
+}
+
+model SshKey {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  privateKeyCipher  String   // AES-256-GCM vault blob
+  passphraseCipher  String?
+  fingerprint       String?
+  keyType           String?
+  createdAt         DateTime @default(now())
+
+  connections     Connection[] @relation("ConnectionKey")
+  certificates    SshCertificate[]
+
+  @@unique([userId, name])
+}
+
+model SshCertificate {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  certificate       String   // public certificate, not secret
+  keyId             String?
+  key               SshKey?  @relation(fields: [keyId], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now())
+
+  connections Connection[] @relation("ConnectionCert")
+
+  @@unique([userId, name])
+}
+
+model KnownHost {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  host        String
+  port        Int      @default(22)
+  keyType     String
+  fingerprint String
+  trustedAt   DateTime @default(now())
+
+  @@unique([userId, host, port])
+}
+
+model WebAuthnCredential {
+  id                String   @id // base64url credential ID
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicKey         Bytes
+  counter           Int      @default(0)
+  transports        String[]
+  name              String
+  lastUsedAt        DateTime?
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, id])
+}
+
+model Tag {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+
+  connections TagOnConnection[]
+
+  @@unique([userId, name])
+}
+
+model TagOnConnection {
+  connectionId String
+  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  tagId        String
+  tag          Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([connectionId, tagId])
+  @@index([tagId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  target    String?
+  ip        String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action])
+}

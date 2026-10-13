@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-base text-slate-200 font-sans antialiased;
+  background-image: radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      rgba(34, 211, 238, 0.06),
+      transparent
+    ),
+    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(139, 92, 246, 0.05), transparent);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.25);
+}
+
+/* Slim scrollbars */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #1d2530;
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #2a3546;
+}
+
+.glass {
+  background: rgba(13, 17, 23, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.text-glow {
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.45);
+}
+
+/* xterm fills its container */
+.xterm-screen {
+  padding: 8px 0 8px 10px;
+}
+
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+}

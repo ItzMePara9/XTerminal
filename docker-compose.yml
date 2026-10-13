@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: xterminal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: xterminal
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xterminal -d xterminal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 7132
+      DATABASE_URL: postgresql://xterminal:${POSTGRES_PASSWORD}@postgres:5432/xterminal
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
+      APP_URL: ${APP_URL:-http://localhost:7132}
+      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-XTerminal}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-http://localhost:7132}
+      MAX_CONNECTIONS_PER_USER: ${MAX_CONNECTIONS_PER_USER:-200}
+      MAX_ACTIVE_SESSIONS_PER_USER: ${MAX_ACTIVE_SESSIONS_PER_USER:-10}
+      SSH_CONNECTION_TIMEOUT: ${SSH_CONNECTION_TIMEOUT:-15000}
+      SSH_IDLE_TIMEOUT: ${SSH_IDLE_TIMEOUT:-3600000}
+      SMTP_URL: ${SMTP_URL:-}
+      EMAIL_FROM: ${EMAIL_FROM:-XTerminal <no-reply@example.com>}
+      EMAIL_VERIFICATION_REQUIRED: ${EMAIL_VERIFICATION_REQUIRED:-false}
+    ports:
+      - "7132:7132"
+    networks:
+      - internal
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
